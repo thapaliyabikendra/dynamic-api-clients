@@ -388,17 +388,175 @@ Mix dot notation and array indexing:
 
 ## Error Handling
 
-### Missing Fields
+### 1. Error Response Configuration
+
+The service uses `ErrorResponseConfig` to handle API error responses differently from successful responses:
+
+```json
+{
+  "ApiClient": {
+    "SystemName": "PAYMENT_API",
+    "ResponseConfig": {
+      // Success response mapping
+      "data": {
+        "source": "result"
+      }
+    },
+    "ErrorResponseConfig": {
+      "errorCode": {
+        "source": "error.code"
+      },
+      "errorMessage": {
+        "source": "error.description"
+      },
+      "errorDetails": {
+        "source": "error.details"
+      }
+    }
+  }
+}
+```
+
+### 2. HTTP Status Code Handling
+
+The service automatically includes HTTP status information in the response:
+
+```json
+{
+  "success": true,  // or false based on HTTP status
+  "code": 200,      // HTTP status code
+  "message": "Success",
+  "data": {
+    // Mapped response data
+  }
+}
+```
+
+For error responses:
+```json
+{
+  "success": false,
+  "code": 400,  // or 401, 403, 404, 500
+  "message": "Error description",
+  "error": {
+    // Mapped error data from ErrorResponseConfig
+  }
+}
+```
+
+### 3. Empty Response Handling
+
+Different types of empty responses are handled automatically:
+
+#### Empty Response Body
+```json
+{
+  "success": true,  // based on HTTP status
+  "code": 204,      // No Content
+  "data": null
+}
+```
+
+#### Array Response
+Automatically wrapped in data property:
+```json
+{
+  "data": [
+    // Original array response
+  ]
+}
+```
+
+#### Non-Mapped Response
+If no ResponseConfig is provided, returns the parsed response as-is.
+
+### 4. Missing Fields
 - When a source path doesn't exist in the response, the output field is set to `null`
 - Missing nested paths are handled gracefully
 
-### Empty Arrays
+### 5. Empty Arrays
 - **List**: Returns empty array `[]`
 - **First/Last**: Returns `null`
 
-### Invalid Response Structure
+### 6. Invalid Response Structure
 - Malformed JSON responses are handled with appropriate error logging
 - Non-array sources with array transforms return empty results
+
+## Advanced Features
+
+### 1. Rules Engine Integration
+
+Use the Rules Engine to transform response data based on business rules:
+
+```json
+{
+  "ResponseConfig": {
+    "eligibilityStatus": {
+      "source": "applicationData",
+      "rulesEngine": "LOAN_ELIGIBILITY_RULES"
+    },
+    "riskCategory": {
+      "source": "customerProfile",
+      "rulesEngine": "RISK_ASSESSMENT"
+    }
+  }
+}
+```
+
+### 2. Response Validation
+
+Configure validation rules for the response:
+
+```json
+{
+  "ResponseConfig": {
+    "validation": {
+      "required": ["transactionId", "status"],
+      "schema": {
+        "transactionId": "string",
+        "amount": "number",
+        "status": "string"
+      }
+    },
+    "data": {
+      "transactionId": {
+        "source": "txn.id"
+      }
+    }
+  }
+}
+```
+
+### 3. Response Transformation Pipeline
+
+Chain multiple transformations for complex scenarios:
+
+```json
+{
+  "ResponseConfig": {
+    "data": {
+      "source": "result",
+      "transform": [
+        {
+          "type": "map",
+          "item": {
+            "id": { "source": "identifier" }
+          }
+        },
+        {
+          "type": "filter",
+          "condition": "status === 'active'"
+        },
+        {
+          "type": "sort",
+          "field": "createdAt",
+          "order": "desc"
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Best Practices
 
@@ -458,6 +616,50 @@ Mix dot notation and array indexing:
 }
 ```
 
+### Handle Error Responses
+```json
+{
+  "ApiClient": {
+    "ResponseConfig": {
+      "data": {
+        "source": "result"
+      }
+    },
+    "ErrorResponseConfig": {
+      "code": {
+        "source": "error.code",
+        "transform": "cast",
+        "castTo": "integer"
+      },
+      "message": {
+        "source": "error.message"
+      },
+      "details": {
+        "source": "error.details",
+        "optional": true
+      }
+    }
+  }
+}
+```
+
+### Implement Validation
+```json
+{
+  "ResponseConfig": {
+    "validation": {
+      "required": ["id", "status"],
+      "custom": "response.amount > 0"
+    },
+    "data": {
+      "id": { "source": "transactionId" },
+      "status": { "source": "state" },
+      "amount": { "source": "total" }
+    }
+  }
+}
+```
+
 ## Common Use Cases
 
 - **API Response Normalization**: Transform external API responses to match internal data models
@@ -467,6 +669,9 @@ Mix dot notation and array indexing:
 - **Legacy System Integration**: Adapt old API response formats to modern applications
 - **Multi-Source Data Combination**: Merge data from multiple API responses
 - **Error Response Handling**: Extract error information from failed API calls
+- **Error Response Standardization**: Transform various API error formats into a consistent structure
+- **Response Validation**: Ensure API responses meet required schemas
+- **Complex Business Logic**: Apply rules engine for response transformation
 
 ## Performance Considerations
 
@@ -481,3 +686,13 @@ Mix dot notation and array indexing:
 ### Memory Usage
 - Large response transformations consume memory
 - Monitor memory usage with high-volume API processing
+
+### Error Handling Performance
+- Use appropriate error response configurations to minimize processing during errors
+- Implement caching for frequently accessed error messages
+- Consider logging levels for different types of errors
+
+### Validation Overhead
+- Balance validation thoroughness with performance requirements
+- Use schema validation for critical data only
+- Consider implementing validation caching for repeated response patterns
