@@ -272,3 +272,269 @@ Organize related mappings in nested objects:
 }
 ```
 
+## Advanced Features
+
+### 1. URL Configuration
+
+#### Path Parameters
+Replace placeholders in URLs with actual values:
+
+```json
+{
+  "url": "https://api.service.com/v2/customers/{customerId}/orders/{orderId}",
+  "pathParams": {
+    "customerId": {
+      "source": "customer.id"
+    },
+    "orderId": {
+      "source": "order.number"
+    }
+  }
+}
+```
+
+#### Query Parameters
+Add query string parameters:
+
+```json
+{
+  "url": "https://api.service.com/v2/products",
+  "queryParams": {
+    "category": {
+      "source": "filters.category"
+    },
+    "page": 1,
+    "limit": 20
+  }
+}
+```
+
+#### Environment Placeholders
+Use environment-specific URLs:
+
+```json
+{
+  "url": "{ACMS_API_BASE_URL}/api/v1/users",
+  "httpMethod": "GET"
+}
+```
+
+Supported placeholders:
+- `{PREFIX_API_BASE_URL}` → Maps to `App:SelfUrl` configuration
+- `{PREFIX_AUTH_BASE_URL}` → Maps to `AuthServer:Authority` configuration
+- `{PREFIX_PM_BASE_URL}` → Maps to `ProcessMakerAPI:BaseURL` configuration
+
+### 2. Content Type Handling
+
+#### Form URL Encoded
+For form data submissions:
+
+```json
+{
+  "contentType": "application/x-www-form-urlencoded",
+  "body": {
+    "grant_type": "client_credentials",
+    "client_id": {
+      "source": "oauth.clientId"
+    },
+    "client_secret": {
+      "source": "oauth.clientSecret"
+    }
+  }
+}
+```
+
+#### Multipart Form Data
+For file uploads and mixed content:
+
+```json
+{
+  "contentType": "multipart/form-data",
+  "body": {
+    "file": {
+      "source": "document.content"
+    },
+    "metadata": {
+      "source": "document.info"
+    }
+  }
+}
+```
+
+### 3. Advanced Error Handling
+
+#### Service-Level Error Responses
+The service provides structured error responses:
+
+```json
+{
+  "success": false,
+  "code": 500,  // HTTP status code
+  "message": "Error description"
+}
+```
+
+Error codes:
+- `400`: Bad Request (validation errors)
+- `401`: Unauthorized (invalid API key for proxy)
+- `403`: Forbidden (missing permissions)
+- `404`: API Client not found
+- `500`: Internal Server Error
+
+#### Error Response Mapping
+When HTTP calls fail, the service uses `ErrorResponseConfig`:
+
+```json
+{
+  "ApiClient": {
+    "SystemName": "PAYMENT_API",
+    "ResponseConfig": {
+      // Success response mapping
+    },
+    "ErrorResponseConfig": {
+      "errorCode": {
+        "source": "error.code"
+      },
+      "errorMessage": {
+        "source": "error.description"
+      },
+      "errorDetails": {
+        "source": "error.details"
+      }
+    }
+  }
+}
+```
+
+#### Empty Response Body Handling
+```json
+{
+  "success": true,  // or false based on HTTP status
+  "code": 200       // HTTP status code
+}
+```
+
+#### Non-Mapped Response
+If no ResponseConfig is provided, returns the parsed response as-is.
+
+## Extended Best Practices
+
+### 1. URL Configuration
+- Use environment placeholders instead of hardcoded URLs
+- Properly encode path and query parameters
+- Handle optional query parameters gracefully
+
+```json
+// Good
+{
+  "url": "{SERVICE_API_BASE_URL}/users",
+  "queryParams": {
+    "active": {
+      "source": "filters.activeOnly",
+      "optional": true
+    }
+  }
+}
+
+// Avoid
+{
+  "url": "https://hardcoded.domain.com/api/users"
+}
+```
+
+### 2. Content Type Selection
+- Choose appropriate content type for the data being sent
+- Use `application/json` for JSON payloads
+- Use `multipart/form-data` for file uploads
+- Use `application/x-www-form-urlencoded` for simple form submissions
+
+### 3. Error Handling Strategy
+- Define both success and error response mappings
+- Handle empty responses gracefully
+- Include proper error details in the response
+- Log relevant error information for debugging
+
+### 4. Security Considerations
+- Never include sensitive data in URLs
+- Use proper content types for secure data transmission
+- Validate and sanitize path parameters
+- Use HTTPS for all external URLs
+
+## Common Use Cases
+
+### 1. RESTful API Integration
+```json
+{
+  "url": "{API_BASE_URL}/v1/resources/{resourceId}",
+  "pathParams": {
+    "resourceId": {
+      "source": "id"
+    }
+  },
+  "queryParams": {
+    "include": "details,metadata",
+    "version": {
+      "source": "requestedVersion"
+    }
+  }
+}
+```
+
+### 2. Form Submission
+```json
+{
+  "contentType": "application/x-www-form-urlencoded",
+  "body": {
+    "username": {
+      "source": "user.name"
+    },
+    "password": {
+      "source": "user.password"
+    },
+    "remember": true
+  }
+}
+```
+
+### 3. File Upload
+```json
+{
+  "contentType": "multipart/form-data",
+  "body": {
+    "document": {
+      "source": "uploadedFile"
+    },
+    "description": {
+      "source": "fileMetadata.description"
+    },
+    "tags": {
+      "source": "fileMetadata.tags"
+    }
+  }
+}
+```
+
+### 4. Error Response Handling
+```json
+{
+  "ResponseConfig": {
+    "data": {
+      "source": "result"
+    }
+  },
+  "ErrorResponseConfig": {
+    "error": {
+      "code": {
+        "source": "errorCode"
+      },
+      "message": {
+        "source": "errorMessage"
+      },
+      "details": {
+        "source": "errorDetails"
+      }
+    }
+  }
+}
+```
+
